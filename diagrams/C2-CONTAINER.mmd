@@ -1,0 +1,104 @@
+graph TB
+    subgraph External["External Systems"]
+        LLM["LLM Services"]
+        Git["Git Repository"]
+        K8s["Kubernetes"]
+    end
+
+    subgraph UI["User Interface"]
+        Web["Web Dashboard"]
+        CLI["CLI Tools"]
+        API["REST/gRPC API"]
+    end
+
+    subgraph Layer1["LAYER 1: ORCHESTRATOR<br/>Strategic Planning<br/>Update Frequency: 10 min<br/>Cost: HIGH"]
+        OrcServer["gRPC Server<br/>Async Tokio"]
+        MissionPlanner["Mission Planner<br/>LLM-based planning<br/>Task decomposition"]
+        GoalManager["Goal Manager<br/>Goal tracking<br/>Progress supervision"]
+        ResourceAlloc["Resource Allocator<br/>Agent capability matching<br/>Load balancing"]
+    end
+
+    subgraph Layer2["LAYER 2: TASK QUEUE MANAGER<br/>Situation Assessment<br/>Update Frequency: 100-500ms<br/>Cost: MEDIUM"]
+        TQServer["gRPC/REST Server<br/>Task distribution"]
+        WorldModel["World Model<br/>File state tracking<br/>Test results<br/>Agent status<br/><br/>&lt;1ms queries via Redis"]
+        ConsistencyDetector["Consistency Violation Detector<br/>Expectation vs Actual<br/>Anomaly Investigation"]
+        TaskQueue["Task Queue<br/>Priority-based<br/>Dependency resolution"]
+        Parametrizer["Parametrization Engine<br/>Intent to Action mapping<br/>Parameter generation"]
+    end
+
+    subgraph Layer3["LAYER 3: AGENT FRAMEWORK<br/>Task Execution<br/>Update Frequency: Continuous<br/>Cost: LOW"]
+        AgentServer["gRPC Server<br/>Agent communication"]
+
+        subgraph Agents["Worker Agents"]
+            Analyzer["Analyzer Agent<br/>Code analysis<br/>Pattern detection"]
+            Coder["Coder Agent<br/>Code generation<br/>LLM-assisted"]
+            Tester["Tester Agent<br/>Test execution<br/>Coverage analysis"]
+        end
+
+        Sandbox["Execution Sandbox<br/>WASM (primary)<br/>Docker (fallback)"]
+        Reflex["Reflex Layer<br/>Emergency stop<br/>Safety constraints"]
+    end
+
+    subgraph Storage["PERSISTENT STORAGE & ANALYTICS"]
+        Redis["Redis Cluster<br/>3-node HA<br/>World state<br/>&lt;1ms latency"]
+        NATS["NATS JetStream<br/>Event bus<br/>1M+ events/sec<br/>7-day replay"]
+        ClickHouse["ClickHouse<br/>Time-series analytics<br/>&lt;100ms queries<br/>50:1 compression"]
+        Neo4j["Neo4j<br/>Knowledge graph<br/>Decision relationships"]
+        ChromaDB["ChromaDB<br/>Vector embeddings<br/>Episodic memory"]
+        S3["S3/Object Store<br/>Historical archive<br/>Parquet format"]
+    end
+
+    %% Connections
+    Web --> API
+    CLI --> API
+    API --> OrcServer
+
+    OrcServer --> MissionPlanner
+    MissionPlanner --> GoalManager
+    GoalManager --> ResourceAlloc
+
+    ResourceAlloc --> Redis
+
+    OrcServer --> TQServer
+
+    TQServer --> WorldModel
+    TQServer --> TaskQueue
+    WorldModel --> Redis
+    ConsistencyDetector --> WorldModel
+    Parametrizer --> WorldModel
+    TaskQueue --> Parametrizer
+
+    TQServer --> AgentServer
+
+    AgentServer --> Agents
+
+    Analyzer --> Sandbox
+    Coder --> Sandbox
+    Tester --> Sandbox
+
+    Sandbox --> Reflex
+
+    Agents --> NATS
+    TaskQueue --> NATS
+    Orchestrator --> NATS
+
+    NATS --> ClickHouse
+    NATS --> Neo4j
+    NATS --> ChromaDB
+    ClickHouse --> S3
+
+    Redis -.->|locks & state| TQServer
+
+    MissionPlanner --> LLM
+    Coder -.->|optional| LLM
+
+    Agents --> Git
+    Git --> WorldModel
+
+    %% Styling
+    style Layer1 fill:#fff9c4
+    style Layer2 fill:#c8e6c9
+    style Layer3 fill:#bbdefb
+    style Storage fill:#f0f4c3
+    style UI fill:#e0e0e0
+    style External fill:#f5f5f5

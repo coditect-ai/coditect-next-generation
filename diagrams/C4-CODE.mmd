@@ -1,0 +1,71 @@
+graph TB
+    subgraph DataStructures["DATA STRUCTURES"]
+        Task["Task Struct<br/>{<br/>  id: String<br/>  goal_id: String<br/>  task_type: TaskType<br/>  description: String<br/>  assigned_agent: Option<br/>  dependencies: Vec<br/>  estimated_duration: Duration<br/>  priority: Priority<br/>  parameters: HashMap<br/>  expected_result: Option<br/>  status: TaskStatus<br/>  result: TaskResult<br/>}"]
+
+        TaskType["TaskType Enum<br/>• Analyze {target}<br/>• CodeGeneration {spec}<br/>• Testing {test_file}<br/>• CodeReview {target}<br/>• Documentation {target}"]
+
+        WorldModel["WorldModel Struct<br/>{<br/>  files: HashMap<br/>  tests: HashMap<br/>  agents: HashMap<br/>  decisions: Vec<br/>  timestamp: DateTime<br/>}"]
+
+        FileState["FileState Struct<br/>{<br/>  path: String<br/>  content_hash: String<br/>  last_modified: DateTime<br/>  last_modifier: String<br/>  language: String<br/>  size_bytes: u64<br/>}"]
+
+        Violation["ConsistencyViolation<br/>{<br/>  violation_id: String<br/>  task_id: String<br/>  violation_type: String<br/>  expected: String<br/>  actual: String<br/>  detected_at: DateTime<br/>  investigation: Option<br/>  resolved: bool<br/>}"]
+
+        Investigation["Investigation<br/>{<br/>  investigation_id: String<br/>  started_at: DateTime<br/>  actions_taken: Vec<br/>  findings: String<br/>  root_cause: Option<br/>  resolution: Option<br/>}"]
+    end
+
+    subgraph GRPCServices["gRPC SERVICE DEFINITIONS"]
+        OrcService["Orchestrator Service<br/><br/>rpc Plan(PlanRequest)<br/>  → PlanResponse<br/><br/>rpc GetGoalStatus<br/>  (GetGoalStatusRequest)<br/>  → GetGoalStatusResponse<br/><br/>rpc Replan(ReplanRequest)<br/>  → PlanResponse"]
+
+        TQService["TaskQueue Service<br/><br/>rpc EnqueuePlan(Plan)<br/>  → EnqueueResponse<br/><br/>rpc DequeueTask()<br/>  → Task<br/><br/>rpc ReportResult(Result)<br/>  → AckResponse<br/><br/>rpc GetWorldModel()<br/>  → WorldModel"]
+
+        AgentService["Agent Service<br/><br/>rpc Execute(Task)<br/>  → TaskResult<br/><br/>rpc GetStatus()<br/>  → AgentStatus<br/><br/>rpc EmergencyStop()<br/>  → AckResponse"]
+    end
+
+    subgraph Algorithms["KEY ALGORITHMS"]
+        MissionPlanAlgo["Mission Planning Algorithm<br/><br/>1. Parse request → intent<br/>2. Analyze context<br/>3. Generate outline<br/>4. Decompose to tasks<br/>5. Resolve dependencies<br/>6. Estimate effort<br/>7. Assign to agents<br/><br/>LLM Prompt: 5-shot examples<br/>Token usage: ~2000 avg<br/>Cost: ~$0.003<br/>Latency: 20-30s"]
+
+        ConsistencyAlgo["Consistency Detection<br/><br/>1. Before action:<br/>   Record expectation<br/>   'tests should pass'<br/><br/>2. Action executes<br/><br/>3. After action:<br/>   Capture actual<br/>   'test failed: XError'<br/><br/>4. Compare:<br/>   Expected vs Actual<br/>   Match? → Continue<br/>   Mismatch? → Investigate<br/><br/>5. Investigation:<br/>   Analyze error<br/>   Find root cause<br/>   Suggest fix<br/><br/>6. Learning:<br/>   Store pattern<br/>   Update model"]
+
+        ResourceMatchingAlgo["Resource Matching Algorithm<br/><br/>Input: Task type, load state<br/><br/>Step 1: Filter by capability<br/>  agents.filter(|a| a.can_do(task))<br/><br/>Step 2: Filter by availability<br/>  agents.filter(|a| a.load < max)<br/><br/>Step 3: Score candidates<br/>  score = success_rate<br/>         × availability<br/>         × load_balance<br/><br/>Step 4: Select best<br/>  agents.max_by_score()<br/><br/>Output: Selected agent + confidence"]
+    end
+
+    subgraph DataFlow["DATA FLOW SEQUENCES"]
+        Success["SUCCESS FLOW<br/><br/>1. User: 'Implement feature'<br/>2. Orchestrator.plan()<br/>   → Task DAG<br/>3. TaskQueue.enqueue()<br/>   → Queue tasks<br/>4. Agents execute<br/>   → Generate code<br/>5. ConsistencyCheck<br/>   → No violations<br/>6. GoalManager.complete()<br/>   → Success<br/>7. User gets results"]
+
+        ErrorRecovery["ERROR RECOVERY FLOW<br/><br/>1. Coder generates code<br/>2. Tester runs tests<br/>   Expected: PASS<br/>   Actual: FAIL<br/><br/>3. ConsistencyDetector<br/>   → VIOLATION!<br/><br/>4. Investigation:<br/>   Analyze error<br/>   Find: Session.save()<br/>   missing<br/><br/>5. Replan:<br/>   Add fix task<br/><br/>6. Coder fixes code<br/>7. Tester runs again<br/>   → PASS<br/><br/>8. Learning:<br/>   Store pattern<br/><br/>9. Success with recovery"]
+    end
+
+    subgraph ProtobufDef["PROTOBUF MESSAGE DEFINITIONS"]
+        PlanReq["message PlanRequest {<br/>  string user_request = 1;<br/>  WorldModel context = 2;<br/>  repeated string<br/>    constraints = 3;<br/>}"]
+
+        PlanResp["message PlanResponse {<br/>  string goal_id = 1;<br/>  repeated Task tasks = 2;<br/>  string estimated_duration = 3;<br/>}"]
+
+        TaskMsg["message Task {<br/>  string id = 1;<br/>  string goal_id = 2;<br/>  TaskType type = 3;<br/>  string description = 4;<br/>  string assigned_agent = 5;<br/>  repeated string<br/>    dependencies = 6;<br/>}"]
+
+        ResultMsg["message TaskResult {<br/>  bool success = 1;<br/>  string output = 2;<br/>  Metrics metrics = 3;<br/>  repeated Anomaly<br/>    anomalies = 4;<br/>}"]
+    end
+
+    %% Connections
+    Task --> TaskType
+    Task --> WorldModel
+    WorldModel --> FileState
+    Violation --> Investigation
+
+    OrcService --> PlanReq
+    OrcService --> PlanResp
+    TQService --> TaskMsg
+    TQService --> ResultMsg
+
+    MissionPlanAlgo --> OrcService
+    ConsistencyAlgo --> TQService
+    ResourceMatchingAlgo --> OrcService
+
+    Success --> DataFlow
+    ErrorRecovery --> DataFlow
+
+    %% Styling
+    style DataStructures fill:#e3f2fd
+    style GRPCServices fill:#f3e5f5
+    style Algorithms fill:#fff3e0
+    style DataFlow fill:#e8f5e9
+    style ProtobufDef fill:#fce4ec

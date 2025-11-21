@@ -1,0 +1,45 @@
+graph TB
+    subgraph External["External Systems & Services"]
+        Developer["👤 Developer/Team<br/>Sends: Feature requests<br/>Receives: Code results"]
+        LLM["🤖 LLM Services<br/>(Claude, GPT)<br/>Provides: Strategic reasoning<br/>Frequency: ~1 call/10min"]
+        Git["📚 Git Repository<br/>(GitHub, GitLab)<br/>Source: Current codebase<br/>Sink: Generated code"]
+        Analytics["📊 Analytics Databases<br/>(ClickHouse, Neo4j)<br/>Receives: All events<br/>Frequency: Real-time"]
+    end
+
+    subgraph CODITECT["🎯 CODITECT SYSTEM<br/>Autonomous Software Development"]
+        Orchestrator["Layer 1: Orchestrator<br/>Strategic Planning<br/>10-min cycles<br/>LLM-heavy<br/><br/>• Mission Planner<br/>• Goal Manager<br/>• Resource Allocator"]
+
+        TaskQueue["Layer 2: Task Queue Manager<br/>Situation Assessment<br/>100-500ms cycles<br/>Medium cost<br/><br/>• World Model<br/>• Consistency Detector<br/>• Task Queue"]
+
+        Agents["Layer 3: Worker Agents<br/>Execution<br/>Continuous cycles<br/>Low cost<br/><br/>• Analyzer Agent<br/>• Coder Agent<br/>• Tester Agent"]
+
+        Memory["Long-term Memory<br/>Learning & Analytics<br/><br/>• Redis (state)<br/>• NATS (events)<br/>• ClickHouse (analytics)<br/>• Neo4j (knowledge)<br/>• ChromaDB (vectors)"]
+    end
+
+    Developer -->|Requests| Orchestrator
+    Orchestrator -->|Status| Developer
+
+    Orchestrator -->|Prompts| LLM
+    LLM -->|Plans| Orchestrator
+
+    Agents -->|Read/Write| Git
+    Git -->|Code content| Agents
+
+    Orchestrator -->|Task plans| TaskQueue
+    TaskQueue -->|Task assignments| Agents
+    Agents -->|Results & anomalies| TaskQueue
+    TaskQueue -->|Progress| Orchestrator
+
+    Orchestrator -->|Events| Memory
+    TaskQueue -->|Events| Memory
+    Agents -->|Events| Memory
+
+    Memory -->|Insights| Orchestrator
+    Memory -->|Analytics| Analytics
+
+    style CODITECT fill:#e1f5ff
+    style Orchestrator fill:#fff9c4
+    style TaskQueue fill:#c8e6c9
+    style Agents fill:#bbdefb
+    style Memory fill:#f0f4c3
+    style External fill:#f5f5f5

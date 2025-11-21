@@ -1,0 +1,85 @@
+graph TB
+    subgraph Orch["ORCHESTRATOR CONTAINER COMPONENTS"]
+        OrcGRPC["gRPC Server<br/>Endpoints:<br/>• /plan<br/>• /status<br/>• /replan"]
+
+        MP["Mission Planner<br/><br/>Input: User request + context<br/>Process: LLM decomposition<br/>Output: Task DAG<br/><br/>• Parses intent<br/>• Analyzes context<br/>• Generates outline<br/>• Decomposes tasks<br/>• Orders by dependency<br/>• Estimates effort<br/>• Assigns agents"]
+
+        GM["Goal Manager<br/><br/>State: Goal tracking<br/>Progress: Subtask tracking<br/>Status: in_progress/completed<br/><br/>• Tracks subtasks<br/>• Detects completion<br/>• Detects failure<br/>• Triggers replan<br/>• Reports progress"]
+
+        RA["Resource Allocator<br/><br/>Agent Registry:<br/>• Capabilities<br/>• Current load<br/>• Success rate<br/><br/>Algorithm:<br/>1. Filter by capability<br/>2. Filter by load<br/>3. Select best-fit<br/>4. Assign task"]
+    end
+
+    subgraph TQ["TASK QUEUE CONTAINER COMPONENTS"]
+        TQGRPC["gRPC/REST Server<br/>Endpoints:<br/>• /enqueue_plan<br/>• /dequeue_task<br/>• /report_result<br/>• /get_world_model"]
+
+        WM["World Model<br/><br/>State:<br/>• Files: {path, hash, mod}<br/>• Tests: {name, status}<br/>• Agents: {id, status}<br/>• Decisions: {id, outcome}<br/><br/>Query: &lt;1ms via Redis"]
+
+        CVD["Consistency Violation<br/>Detector<br/><br/>Before action:<br/>Record expectation<br/><br/>After action:<br/>Get actual result<br/><br/>Compare:<br/>Mismatch? → Investigate<br/><br/>Output:<br/>• Violation categorized<br/>• Investigation triggered<br/>• Learning recorded"]
+
+        TQImpl["Task Queue<br/>Implementation<br/><br/>Data Structure:<br/>• Priority queue<br/>• Dependency graph<br/>• Assignment tracking<br/><br/>Operations:<br/>• Enqueue (with priority)<br/>• Dequeue (with deps)<br/>• Assign to agent<br/>• Collect results<br/>• Handle timeout"]
+
+        PE["Parametrization Engine<br/><br/>Input: High-level intent<br/>Process: Context-aware mapping<br/>Output: Parameterized action<br/><br/>Examples:<br/>AnalyzeCode → find_files {pattern}<br/>WriteCode → generate {template}<br/>RunTests → execute {file}"]
+    end
+
+    subgraph AF["AGENT FRAMEWORK CONTAINER COMPONENTS"]
+        AFGR PC["gRPC Server<br/>Agent Communication<br/><br/>Endpoints:<br/>• /receive_task<br/>• /report_result<br/>• /get_status<br/>• /emergency_stop"]
+
+        AN["Analyzer Agent<br/><br/>Inputs: Code, requirements<br/>Processing:<br/>• Static analysis<br/>• Pattern detection<br/>• Requirement matching<br/>• Coverage analysis<br/>Outputs: Report, recommendations<br/>Latency: &lt;1s small, &lt;5s large<br/>Cost: $ (no LLM)"]
+
+        CD["Coder Agent<br/><br/>Inputs: Spec, existing code<br/>Processing:<br/>• LLM code gen<br/>• Integration<br/>• Style enforcement<br/>• Validation<br/>Outputs: Code file<br/>Latency: 3-10s<br/>Cost: $$ (LLM usage)"]
+
+        TS["Tester Agent<br/><br/>Inputs: Test files, code<br/>Processing:<br/>• Test discovery<br/>• Test execution<br/>• Result parsing<br/>• Coverage analysis<br/>• Failure analysis<br/>Outputs: Test results<br/>Latency: 1-30s<br/>Cost: $ (no LLM)"]
+
+        SB["Execution Sandbox<br/><br/>WASM (Primary):<br/>• 5-20ms startup<br/>• Memory-safe<br/>• Fuel limits<br/>• File restricted<br/><br/>Docker (Fallback):<br/>• Heavy libraries<br/>• Compute intensive<br/>• Resource limited"]
+
+        RL["Reflex Layer<br/><br/>• Emergency stop<br/>• Safety constraints<br/>• Rate limiting<br/>• Resource limits<br/>• Timeout enforcement"]
+    end
+
+    subgraph Storage["PERSISTENT STORAGE COMPONENTS"]
+        RedisComp["Redis Cluster<br/><br/>Data:<br/>• World state<br/>• Distributed locks<br/>• Pub/Sub events<br/><br/>Performance:<br/>• &lt;1ms queries<br/>• 3-node HA<br/>• TTL expiration"]
+
+        NATSComp["NATS JetStream<br/><br/>Events:<br/>• agent.think<br/>• agent.act<br/>• agent.learn<br/><br/>Features:<br/>• 1M+ events/sec<br/>• Full replay<br/>• Durable subs<br/>• Clustering"]
+
+        CHComp["ClickHouse<br/><br/>Analytics:<br/>• Event ingestor<br/>• Time-series queries<br/>• TTL archival<br/><br/>Performance:<br/>• &lt;100ms on 1B rows<br/>• 50:1 compression"]
+
+        N4jComp["Neo4j<br/><br/>Knowledge Graph:<br/>• Agent nodes<br/>• Task nodes<br/>• Decision nodes<br/>• Relationships<br/><br/>Queries:<br/>• Root cause analysis<br/>• Impact analysis"]
+
+        CBDComp["ChromaDB<br/><br/>Vector Store:<br/>• Embeddings<br/>• Semantic search<br/>• Episodic memory<br/>• Situation matching"]
+    end
+
+    %% Connections within containers
+    OrcGRPC --> MP
+    MP --> GM
+    GM --> RA
+
+    TQGRPC --> WM
+    TQGRPC --> CVD
+    TQGRPC --> TQImpl
+    WM --> PE
+    TQImpl --> PE
+
+    AFGR PC --> AN
+    AFGR PC --> CD
+    AFGR PC --> TS
+
+    AN --> SB
+    CD --> SB
+    TS --> SB
+    SB --> RL
+
+    %% Connections between containers
+    RA -.->|query agent state| RedisComp
+    WM -.->|backed by| RedisComp
+    CVD -.->|detection triggers| NATSComp
+    AN -->|publish events| NATSComp
+    CD -->|publish events| NATSComp
+    TS -->|publish events| NATSComp
+    NATSComp -->|persist| CHComp
+    NATSComp -->|build graph| N4jComp
+    NATSComp -->|embed| CBDComp
+
+    %% Styling
+    style Orch fill:#fff9c4
+    style TQ fill:#c8e6c9
+    style AF fill:#bbdefb
+    style Storage fill:#f0f4c3
