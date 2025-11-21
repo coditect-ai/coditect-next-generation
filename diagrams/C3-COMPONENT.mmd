@@ -22,7 +22,7 @@ graph TB
     end
 
     subgraph AF["AGENT FRAMEWORK CONTAINER COMPONENTS"]
-        AFGR PC["gRPC Server<br/>Agent Communication<br/><br/>Endpoints:<br/>• /receive_task<br/>• /report_result<br/>• /get_status<br/>• /emergency_stop"]
+        AFGRPC["gRPC Server<br/>Agent Communication<br/><br/>Endpoints:<br/>• /receive_task<br/>• /report_result<br/>• /get_status<br/>• /emergency_stop"]
 
         AN["Analyzer Agent<br/><br/>Inputs: Code, requirements<br/>Processing:<br/>• Static analysis<br/>• Pattern detection<br/>• Requirement matching<br/>• Coverage analysis<br/>Outputs: Report, recommendations<br/>Latency: &lt;1s small, &lt;5s large<br/>Cost: $ (no LLM)"]
 
@@ -58,9 +58,9 @@ graph TB
     WM --> PE
     TQImpl --> PE
 
-    AFGR PC --> AN
-    AFGR PC --> CD
-    AFGR PC --> TS
+    AFGRPC --> AN
+    AFGRPC --> CD
+    AFGRPC --> TS
 
     AN --> SB
     CD --> SB

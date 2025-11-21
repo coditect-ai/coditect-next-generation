@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1
+FROM python:3.10-slim-buster
+
+WORKDIR /app
+
+# Copy the requirements file from the .coditect directory
+COPY ../../.coditect/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code
+# COPY ../../. /app
+
+# Command to run the application (placeholder)
+# CMD ["python", "your_app.py"]

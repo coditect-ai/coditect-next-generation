@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Message Bus - RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    hostname: rabbitmq
+    ports:
+      - "5672:5672" # AMQP protocol port
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - coditect-network
+
+  # Agent Discovery, Task Queue - Redis
+  redis:
+    image: redis:6-alpine
+    hostname: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - coditect-network
+
+  # Coditect Core Application Placeholder
+  # This service will be developed in Python and will interact with RabbitMQ and Redis.
+  # A Dockerfile named Dockerfile.coditect-core will be needed in this directory.
+  coditect-core:
+    build:
+      context: ../../.
+      dockerfile: ./deployments/docker/Dockerfile.coditect-core
+    container_name: coditect-core
+    depends_on:
+      - rabbitmq
+      - redis
+    # Uncomment and configure the following lines as your application develops:
+    # environment:
+    #   RABBITMQ_HOST: rabbitmq
+    #   REDIS_HOST: redis
+    # volumes:
+    #   - ../../:/app # Mount the project directory into the container for development
+    # command: python -m your_app_module # Replace with your actual startup command
+    networks:
+      - coditect-network
+
+volumes:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  coditect-network:
+    driver: bridge
