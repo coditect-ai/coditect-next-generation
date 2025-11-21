@@ -1,0 +1,102 @@
+# Environment & Secrets
+.env
+.env.local
+.env*.local
+.env.*.local
+*.key
+*.pem
+secrets.json
+credentials.json
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Build & Distribution
+dist/
+build/
+out/
+*.js
+*.d.ts
+!*.config.js
+.next/
+.nuxt/
+coverage/
+.coverage
+.nyc_output/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.env.local
+.venv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Rust
+/target/
+Cargo.lock
+**/*.rs.bk
+
+# Test & Debug
+*.log
+logs/
+test-results/
+test-coverage/
+
+# Runtime
+.tmp
+tmp/
+temp/
+*.pid
+*.seed
+*.pid.lock
+
+# OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+
+# Project Specific
+.coditect/
+!.coditect
+.claude/
+!.claude
+.git

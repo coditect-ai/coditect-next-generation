@@ -1,0 +1,310 @@
+================================================================================
+CHUNK METADATA
+================================================================================
+Filename: research1.txt
+Chunk Number: 13 of 13
+Source Lines: 5701-5999 (total file: 5999 lines)
+Chunk Lines: 299
+Overlap with Previous: 25 lines (5%)
+Created: 2025-11-21T06:47:19.110656
+================================================================================
+
+
+Delete from FDB.
+
+Impact: Reduces storage costs by ~95%.
+
+4. The "Diplomat": Conflict Resolution Strategies
+The Danger: We assumed a "Last Write Wins" or "Append Only" model. But what if User A (on laptop) and User B (on tablet) both edit the same file offline and then sync?
+
+Current State: The Syncer will append both edits to the history. When you replay, the file might look like garbage (two versions mixed together).
+
+The Solution: A Merge Strategy (CRDTs or OT).
+
+Simple: "Last Writer Wins" (based on the FDB Versionstamp).
+
+Complex (Better): Operational Transformation (OT). The Replayer doesn't just dump files; it attempts to merge the diffs intelligently, or it flags a "Conflict Event" in the stream requiring human intervention.
+
+Summary of the Missing Pieces
+Component	Why we need it	Recommended Tech
+Sandbox	Prevent rm -rf /	Firecracker / Docker
+Search	Find code by meaning	Qdrant / ChromaDB
+Janitor	Prevent bankruptcy	S3 Lifecycle Policies
+Merger	Handle offline conflicts	CRDTs / Yjs
+Immediate Recommendation
+The Sandbox is the only one that is a "Showstopper" (safety risk). The others are optimization/feature problems.
+
+Would you like me to design the "Sandbox" integration, showing how the Agent delegates code execution to a secure container before saving the result to FDB?
+
+Is there a way to sandbox locally?
+
+Yes. Running a sandbox locally is not only possible, it is mandatory for a system like yours. If your agent creates a recursive loop that writes 10GB of log files or accidentally deletes your Documents folder, your user will uninstall the software immediately.
+
+For local execution (on a user's laptop), you cannot use heavy cloud tools like Firecracker easily. You need something lightweight that relies on tools the developer likely already has.
+
+Here are the three tiers of local sandboxing, from "Light" to "Ironclad."
+
+1. The Practical Choice: Docker (Ephemeral Containers)
+Since your users are likely developers, they probably have Docker installed. You can spin up a "throwaway" container for every single code execution.
+
+How it works: The Agent mounts the specific project folder (and nothing else) into a container, runs the code, captures the output, and kills the container.
+
+Safety: If the AI runs rm -rf /, it only destroys the container's virtual filesystem, not the user's OS.
+
+Networking: You can set network_mode="none" so the rogue code cannot steal API keys and send them to a remote server.
+
+2. The "Future" Choice: WebAssembly (WASI)
+If you want the system to be blazing fast (creating 1,000 sandboxes per second), you use WebAssembly.
+
+Tools: Wasmtime or WasmEdge.
+
+Pros: Sub-millisecond startup time. Secure by default (it cannot access files unless explicitly granted).
+
+Cons: Running complex Python (with numpy/pandas) in Wasm is still bleeding-edge and can be difficult.
+
+3. The "Native" Choice: chroot / jail (Unix only)
+You can use OS-level isolation tools (like bwarn or bubblewrap), but these are hard to support across Mac, Linux, and Windows equally.
+
+Recommended Implementation: Docker Sandbox
+This is the most robust method for today. Here is how you wrap your Agent's "Action" phase in a local Docker sandbox.
+
+The Sandbox Wrapper Code
+You can add this to your nervous_system/tools/ directory.
+
+Python
+import docker
+from docker.errors import ContainerError, ImageNotFound
+import os
+
+class LocalSandbox:
+    def __init__(self):
+        self.client = docker.from_env()
+        # Use a lightweight Python image
+        self.image = "python:3.11-slim" 
+
+    def execute_code(self, code_string, project_path):
+        """
+        Runs the generated code inside a sealed container.
+        """
+        try:
+            # 1. Write the code to a temporary file in the project dir
+            # (So the container can see it via the mount)
+            temp_filename = "__agent_exec_temp.py"
+            host_file_path = os.path.join(project_path, temp_filename)
+            
+            with open(host_file_path, "w") as f:
+                f.write(code_string)
+
+            # 2. Run the Container
+            # We mount ONLY the project_path to /app
+            # We disable networking so it can't leak data
+            logs = self.client.containers.run(
+                image=self.image,
+                command=f"python /app/{temp_filename}",
+                volumes={os.path.abspath(project_path): {'bind': '/app', 'mode': 'rw'}},
+                working_dir="/app",
+                network_mode="none",  # CRITICAL: No Internet Access
+                mem_limit="512m",     # CRITICAL: Prevent RAM explosion
+                remove=True,          # Delete container immediately after run
+                stderr=True
+            )
+            
+            return {"status": "success", "output": logs.decode("utf-8")}
+
+        except ContainerError as e:
+            # The code crashed (Runtime Error)
+            return {"status": "error", "output": e.stderr.decode("utf-8")}
+            
+        except Exception as e:
+            return {"status": "system_failure", "output": str(e)}
+            
+        finally:
+            # Cleanup the temp file on the host
+            if os.path.exists(host_file_path):
+                os.remove(host_file_path)
+
+# --- Usage ---
+if __name__ == "__main__":
+    sandbox = LocalSandbox()
+    
+    # Scenario: Agent wants to run a dangerous script
+    dangerous_code = """
+import os
+print("Hello from the sandbox!")
+# Try to list root - will see container root, not host root
+print(f"Root dirs: {os.listdir('/')}")
+"""
+    
+    result = sandbox.execute_code(dangerous_code, "./my_project")
+    print(result['output'])
+Architecture Update
+This changes your "Edge" flow slightly. The Agent no longer executes code directly.
+
+Agent thinks and generates code.
+
+Agent calls LocalSandbox.execute_code().
+
+Docker runs the code in isolation.
+
+Docker returns stdout to Agent.
+
+Agent writes the result to SQLite (Context).
+
+Syncer pushes the result to FoundationDB (Cloud).
+
+Key Limitation: "The Docker Requirement"
+The only downside is that your user must have Docker installed.
+
+Mitigation: When your CLI tool starts (enchanted start), you check for the Docker daemon. If it's missing, you degrade gracefully:
+
+Warning: Docker not found. Running in UNRESTRICTED mode. Please install Docker for safety.
+
+Would you like to explore the WebAssembly (Wasm) route instead if you want to avoid the Docker dependency (at the cost of Python library support)?
+
+explore the WebAssembly (Wasm) route instead if you want to avoid the Docker dependency (at the cost of Python library support)?
+
+Yes, this is the "Holy Grail" of secure local execution.
+
+Switching to WebAssembly (Wasm) for your local sandbox removes the heavy Docker requirement. It means your users can run your "Enchanted System" by simply pip install-ing it, without needing to install or manage the Docker Daemon (which consumes battery and RAM even when idle).
+
+However, as you noted, Standard Python Support is the cost. You get a "Pure Python" environment. If your agent tries to import numpy or import pandas, it will fail unless you do significant extra engineering to compile those C-libraries to Wasm.
+
+Here is how to architect the Wasm Route using wasmtime (the industry standard runtime).
+
+1. The Architecture: Wasmtime vs. Docker
+Feature	Docker Sandbox	Wasm Sandbox (Recommended)
+Dependency	Requires Docker Desktop (Heavy)	pip install wasmtime (Light)
+Startup Time	~500ms - 2000ms	~5ms - 20ms
+Security	OS-level Kernel Isolation	Mathematical Isolation (Memory Safety)
+Control	CPU/RAM Limits via Cgroups	Precise "Fuel" Limits (Instruction Count)
+Libraries	Everything (Numpy, Torch, etc.)	Pure Python Only (Standard Lib)
+2. The Implementation: WasmSandbox
+You will need to download a pre-compiled Python Wasm binary. You don't compile this yourself; you download it from the VMware Wasm Labs or a similar trusted source.
+
+Prerequisites:
+
+Bash
+pip install wasmtime
+# Download the binary (do this once during setup)
+wget https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.12.0%2B20231211-f03324d/python-3.12.0.wasm
+The Sandbox Code: Save this as nervous_system/tools/wasm_sandbox.py.
+
+Python
+from wasmtime import Config, Engine, Linker, Module, Store, WasiConfig
+import os
+import tempfile
+
+class WasmSandbox:
+    def __init__(self, wasm_binary_path="tools/python-3.12.0.wasm"):
+        # 1. Configure the Runtime Engine
+        engine_cfg = Config()
+        engine_cfg.consume_fuel = True  # Enable "Gas" limiting (prevent infinite loops)
+        engine_cfg.cache = True         # Cache JIT compilation for speed
+        
+        self.engine = Engine(engine_cfg)
+        self.linker = Linker(self.engine)
+        self.linker.define_wasi()       # Link Standard WASI (Filesystem, IO)
+        
+        # Load the Python Interpreter into memory ONCE (High performance)
+        self.module = Module.from_file(self.engine, wasm_binary_path)
+
+    def execute_code(self, code_string: str, project_mount_path: str = None):
+        """
+        Runs untrusted code inside the Wasm Sandbox.
+        """
+        store = Store(self.engine)
+        
+        # 2. Set Safety Limits (The "Fuel")
+        # ~400M instructions is roughly 1 second of compute.
+        # If the code loops forever, the engine kills it automatically.
+        store.set_fuel(400_000_000) 
+        
+        # 3. Configure the "Virtual Machine"
+        wasi = WasiConfig()
+        
+        # A. Pass the code as a CLI argument to the python.wasm binary
+        wasi.argv = ["python", "-c", code_string]
+        
+        # B. Capture Output (Don't let it print to the real terminal)
+        with tempfile.TemporaryFile() as stdout_temp, tempfile.TemporaryFile() as stderr_temp:
+            
+            # C. Mount Directories (Sandboxed Filesystem)
+            # The Wasm process sees 'project_mount_path' as '/mnt/project'
+            # It CANNOT access your ~/.ssh keys or Documents.
+            if project_mount_path:
+                 # host_path :: guest_path
+                wasi.preopen_dir(project_mount_path, "/mnt/project")
+            
+            wasi.stdout_file = stdout_temp
+            wasi.stderr_file = stderr_temp
+            
+            # Attach configuration to store
+            store.set_wasi(wasi)
+            
+            try:
+                # 4. Instantiate and Run
+                instance = self.linker.instantiate(store, self.module)
+                
+                # "_start" is the standard entry point for WASI applications
+                start_func = instance.exports(store)["_start"]
+                start_func(store)
+                
+                status = "success"
+                
+            except Exception as e:
+                # This catches "Out of Fuel" (Infinite Loops) too!
+                status = f"error: {e}"
+            
+            # 5. Read the Output Logs
+            stdout_temp.seek(0)
+            stderr_temp.seek(0)
+            stdout = stdout_temp.read().decode("utf-8")
+            stderr = stderr_temp.read().decode("utf-8")
+            
+            return {
+                "status": status, 
+                "stdout": stdout, 
+                "stderr": stderr,
+                "fuel_consumed": store.fuel_consumed()
+            }
+
+# --- Usage Example ---
+if __name__ == "__main__":
+    sandbox = WasmSandbox()
+    
+    # Malicious Code Attempt
+    risky_code = """
+import os
+print("Hello from inside Wasm!")
+try:
+    print(os.listdir('/')) # Allowed (See virtual root)
+    print(os.listdir('/etc')) # Failed (Doesn't exist)
+except Exception as e:
+    print(e)
+"""
+    
+    result = sandbox.execute_code(risky_code, project_mount_path="./")
+    print(f"Output:\n{result['stdout']}")
+    print(f"Errors:\n{result['stderr']}")
+    print(f"Fuel Used: {result['fuel_consumed']}")
+3. Strategic Trade-off Analysis
+Why you should choose Wasm: For an "Enchanted System" that generates code, security is your biggest liability. Docker is secure, but it's easy to misconfigure (e.g., mounting the wrong volume). Wasm is secure by design—it simply cannot see files you didn't explicitly preopen.
+
+The "Pure Python" Limitation: If your Agents are writing scripts to analyze data (import pandas), this will fail.
+
+Solution A (Hybrid): Use Wasm for 90% of logic / utility scripts. Use a fallback Docker path only if the agent specifically requests "Heavy Libraries."
+
+Solution B (The "Pyodide" Trick): You can use a special build of Python (like Pyodide) that includes Numpy compiled to Wasm, but this increases the binary size from ~10MB to ~100MB+.
+
+4. How this fits the "Hybrid" Model
+This integrates perfectly with your SQLite + FoundationDB architecture.
+
+Agent (Edge): Generates code.
+
+WasmSandbox (Edge): Executes it locally, safely, in milliseconds.
+
+SQLite (Edge): Records the fuel_consumed and stdout.
+
+Syncer: Pushes this execution log to Cloud FDB.
+
+Recommendation: Start with Wasm. It makes the "First Run Experience" magical for your users—they download your app, and the AI starts coding immediately without asking them to install Docker. Only add Docker support later if users demand heavy data science libraries.

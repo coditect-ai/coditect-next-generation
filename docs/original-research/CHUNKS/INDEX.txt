@@ -1,0 +1,25 @@
+FILE CHUNKING INDEX
+================================================================================
+
+Original File: docs/original-research/research1.txt
+Total Lines: 5999
+Chunk Size: 500 lines
+Overlap: 5% (25 lines)
+Total Chunks: 13
+Created: 2025-11-21T06:47:19.110812
+
+================================================================================
+
+Chunk   1: Lines     1-  500 (500 lines)
+Chunk   2: Lines   476-  975 (500 lines) [Overlap: 25 lines from previous]
+Chunk   3: Lines   951- 1450 (500 lines) [Overlap: 25 lines from previous]
+Chunk   4: Lines  1426- 1925 (500 lines) [Overlap: 25 lines from previous]
+Chunk   5: Lines  1901- 2400 (500 lines) [Overlap: 25 lines from previous]
+Chunk   6: Lines  2376- 2875 (500 lines) [Overlap: 25 lines from previous]
+Chunk   7: Lines  2851- 3350 (500 lines) [Overlap: 25 lines from previous]
+Chunk   8: Lines  3326- 3825 (500 lines) [Overlap: 25 lines from previous]
+Chunk   9: Lines  3801- 4300 (500 lines) [Overlap: 25 lines from previous]
+Chunk  10: Lines  4276- 4775 (500 lines) [Overlap: 25 lines from previous]
+Chunk  11: Lines  4751- 5250 (500 lines) [Overlap: 25 lines from previous]
+Chunk  12: Lines  5226- 5725 (500 lines) [Overlap: 25 lines from previous]
+Chunk  13: Lines  5701- 5999 (299 lines) [Overlap: 25 lines from previous]
